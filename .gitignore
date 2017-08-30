@@ -1,4 +1,5 @@
-.idea/  # pycharm project data
+# Pycharm project files
+.idea/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
