@@ -1,7 +1,6 @@
 # rr.statemachine
 
-A very simple and flexible class for defining discrete state machines (including, but not limited 
-to FSMs).
+A no-frills class for defining discrete state machines (including, but not limited to FSMs).
 
 ## Installation
 
@@ -14,5 +13,5 @@ pip install rr.statemachine
 Or from the Git repo:
 
 ```bash
-pip install git+git://github.com/2xR/rr.statemachine.git
+pip install git+https://github.com/2xR/rr.statemachine.git
 ```
