@@ -56,7 +56,7 @@ class StateMachine(object):
         it when calling `start()` if desired.
         """
         if self.started:
-            raise ValueError("state machine has already been started")
+            raise RuntimeError("state machine has already been started")
         if initial_state is None:
             initial_state = self.initial_state
         if initial_state is None:
@@ -66,6 +66,8 @@ class StateMachine(object):
 
     def input(self, symbol):
         """Feed a `symbol` into the state machine to trigger a transition to a different state."""
+        if not self.started:
+            raise RuntimeError("state machine must be started")
         self._symbols.append(symbol)
         self._resolve()
 
@@ -97,10 +99,13 @@ class StateMachine(object):
         raise NotImplementedError()
 
     def transition_handler(self, transition):
-        """Perform actions associated with a `transition`.
+        """Perform actions associated with the argument `transition`.
 
         Note that this occurs between the exit handler of the source state and the enter handler
-        of the target state, and the machine's `state` is undefined (None) at this stage.
+        of the target state, and the machine's `state` is undefined (None) at this stage. The
+        states involved in the transition can be accessed through the `source` and `target`
+        attributes of `transition`, and the symbol that triggered the transition can be obtained
+        through the `symbol` attribute.
         """
         pass
 
@@ -111,43 +116,3 @@ class StateMachine(object):
     def exit_handler(self, state):
         """Perform actions associated with the event of leaving the argument `state`."""
         pass
-
-
-def _example():
-
-    class Foo(StateMachine):
-
-        initial_state = "bar"
-        transition_map = {
-            "bar": {
-                "f": "foo",
-                "s": "spam",
-            },
-            "foo": {
-                "b": "bar",
-            },
-            "spam": {
-                "h": "ham",
-                "f": "foo",
-            },
-        }
-
-        def transition_target(self, state, symbol):
-            return self.transition_map[state][symbol]
-
-        def transition_handler(self, transition):
-            print("T {}".format(transition))
-
-        def enter_handler(self, state):
-            print("> {}".format(state))
-
-        def exit_handler(self, state):
-            print("< {}".format(state))
-
-    f = Foo()
-    f.start()
-    f.input("f")
-    f.input("b")
-    f.input("s")
-    f.input("h")
-    return f
