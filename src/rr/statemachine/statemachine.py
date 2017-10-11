@@ -1,24 +1,19 @@
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
-
 import collections
 
 
 Transition = collections.namedtuple("Transition", ["source", "symbol", "target"])
 
 
-class StateMachine(object):
+class StateMachine:
 
     initial_state = None  # can be defined as class attribute or instance attribute/property
 
     def __init__(self, initial_state=None):
         if initial_state is not None:
             self.initial_state = initial_state  # override initial state directly on instance
-        self._state = None  # current state (NOTE: cannot be None)
+        self._state = None  # current state (None means undefined/uninitialized)
         self._transition = None  # ongoing transition
-        self._symbols = collections.deque()  # pending symbols
+        self._symbols = collections.deque()  # unprocessed input symbols queue
 
     def __str__(self):
         return "{}({!r})".format(type(self).__name__, self._state)
@@ -62,43 +57,51 @@ class StateMachine(object):
         if initial_state is None:
             raise ValueError("undefined initial state")
         self._state = initial_state
-        self.enter_handler(initial_state)
+        self.on_enter(initial_state)
 
     def input(self, symbol):
-        """Feed a `symbol` into the state machine to trigger a transition to a different state."""
+        """Feed a `symbol` into the state machine to trigger a state transition."""
         if not self.started:
             raise RuntimeError("state machine must be started")
         self._symbols.append(symbol)
         self._resolve()
 
     def _resolve(self):
-        """Resolve pending transitions. Pending symbols are kept in a FIFO queue to ensure that
-        enter/exit/transition handlers are executed in the correct order.
+        """Resolve pending transitions, *i.e.* process queued input symbols.
+
+        Pending symbols are kept in a FIFO queue to ensure that enter/exit/transition handlers
+        are executed in the correct order.
         """
-        if self._transition is not None:
+        if self.transitioning:
             return  # we're already in the midst of resolving transitions
         while len(self._symbols) > 0:
             source = self._state
             symbol = self._symbols.popleft()
-            target = self.transition_target(source, symbol)
+            target = self.target(source, symbol)
             if target is None:
                 raise ValueError("undefined target state")
             transition = Transition(source=source, symbol=symbol, target=target)
             self._transition = transition
-            self.exit_handler(source)
+            self.on_exit(source)
             self._state = None  # state becomes "undefined" in the middle of the transition
-            self.transition_handler(transition)
+            self.on_transition(transition)
             self._state = target
-            self.enter_handler(target)
+            self.on_enter(target)
         self._transition = None
 
-    def transition_target(self, state, symbol):
-        """Given the current state and an input symbol, return the state the machine should
-        transition into.
-        """
+    def target(self, state, symbol):
+        """Given a state and an input symbol, return the machine's next state."""
         raise NotImplementedError()
 
-    def transition_handler(self, transition):
+    def on_enter(self, state):
+        """Perform actions associated with the event of entering the argument `state`."""
+        pass
+
+    def on_exit(self, state):
+        """Perform actions associated with the event of leaving the argument `state`."""
+        pass
+
+    def on_transition(self, transition):
         """Perform actions associated with the argument `transition`.
 
         Note that this occurs between the exit handler of the source state and the enter handler
@@ -107,12 +110,4 @@ class StateMachine(object):
         attributes of `transition`, and the symbol that triggered the transition can be obtained
         through the `symbol` attribute.
         """
-        pass
-
-    def enter_handler(self, state):
-        """Perform actions associated with the event of entering the argument `state`."""
-        pass
-
-    def exit_handler(self, state):
-        """Perform actions associated with the event of leaving the argument `state`."""
         pass

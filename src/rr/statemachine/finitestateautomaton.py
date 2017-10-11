@@ -1,19 +1,14 @@
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
-
 import collections
 
-from .statemachine import StateMachine, Transition
+from .statemachine import StateMachine
+from .transitiongraph import TransitionGraph, TransitionGraphDrivenMixin
 
 
-class FiniteStateAutomatonTransitionGraph(object):
+class FiniteStateAutomatonTransitionGraph(TransitionGraph):
 
     def __init__(self, transitions=()):
         self.arcs = collections.defaultdict(dict)
-        for transition in transitions:
-            self.add(transition)
+        self.update(transitions)
 
     def add(self, transition):
         source, symbol, target = transition
@@ -23,20 +18,12 @@ class FiniteStateAutomatonTransitionGraph(object):
         return self.arcs[source][symbol]
 
 
-class FiniteStateAutomaton(StateMachine):
+class FiniteStateAutomaton(TransitionGraphDrivenMixin, StateMachine):
 
-    # The transition graph class to be used when constructing the instance's transition graph.
-    # This can be overriden by subclasses to use different transition graph implementations
-    # (see, for example, MarkovChain).
+    # Provide access to the transition graph class that should be used when constructing the
+    # class or instance's transition graph.
     TransitionGraph = FiniteStateAutomatonTransitionGraph
-    Transition = Transition  # (source, symbol, target) named tuples
-    transitions = None  # iterable of `Transition`s (defined at class or instance level)
 
-    def __init__(self, initial_state=None, transitions=None):
+    def __init__(self, initial_state=None, transition_graph=None):
+        TransitionGraphDrivenMixin.__init__(self, transition_graph)
         StateMachine.__init__(self, initial_state)
-        if transitions is None:
-            transitions = self.transitions
-        self._transition_graph = self.TransitionGraph(transitions)
-
-    def transition_target(self, state, symbol):
-        return self._transition_graph.target(state, symbol)

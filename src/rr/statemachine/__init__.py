@@ -1,14 +1,9 @@
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
-
-from . import mixins
 from .finitestateautomaton import FiniteStateAutomaton
 from .markovchain import MarkovChain
 from .statemachine import StateMachine
+from .dynamicdispatch import DynamicDispatchMixin
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 __author__ = "Rui Rei"
 __copyright__ = "Copyright 2017 {author}".format(author=__author__)
 __license__ = "MIT"
@@ -16,22 +11,23 @@ __license__ = "MIT"
 
 def _dd_example():
 
-    class Bar(mixins.DynamicDispatchMixin, FiniteStateAutomaton):
+    class Bar(DynamicDispatchMixin, FiniteStateAutomaton):
 
         initial_state = "a"
-        transitions = [
+        transition_graph = FiniteStateAutomaton.TransitionGraph([
             ("a", "x", "b"),
             ("b", "y", "a"),
             ("b", "z", "b"),
-        ]
+        ])
+        transition_handler_name = "on_transition_{0.source}_{0.target}"
 
-        def enter_handler(self, state):
+        def on_enter(self, state):
             print(">>> {}".format(state))
 
-        def transition_handler_b_z_b(self):
-            print("loop")
+        def on_transition_b_b(self):
+            print("loop b")
 
-        def exit_handler_b(self):
+        def on_exit_b(self):
             print("b >>>")
 
     b = Bar()
@@ -48,21 +44,21 @@ def _fsa_example():
     class Foo(FiniteStateAutomaton):
 
         initial_state = "bar"
-        transitions = [
+        transition_graph = FiniteStateAutomaton.TransitionGraph([
             ("bar", "f", "foo"),
             ("bar", "s", "spam"),
             ("foo", "b", "bar"),
             ("spam", "h", "ham"),
             ("spam", "f", "foo"),
-        ]
+        ])
 
-        def transition_handler(self, transition):
+        def on_transition(self, transition):
             print("T {}".format(transition))
 
-        def enter_handler(self, state):
+        def on_enter(self, state):
             print("> {}".format(state))
 
-        def exit_handler(self, state):
+        def on_exit(self, state):
             print("< {}".format(state))
 
     f = Foo()
@@ -92,13 +88,13 @@ def _mc_example(text):
 
     chain = MarkovChain(
         initial_state=words[0],
-        transitions=[
+        transition_graph=MarkovChain.TransitionGraph(
             (source, count, target)
             for source, source_arcs in arcs.items()
             for target, count in source_arcs.items()
-        ],
+        ),
     )
-    chain.enter_handler = print
+    chain.on_enter = print
     chain.text = text
     chain.words = words
     return chain
