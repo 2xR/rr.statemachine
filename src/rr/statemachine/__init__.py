@@ -3,7 +3,7 @@ from .markovchain import MarkovChain
 from .statemachine import StateMachine
 from .dynamicdispatch import DynamicDispatchMixin
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"
 __author__ = "Rui Rei"
 __copyright__ = "Copyright 2017 {author}".format(author=__author__)
 __license__ = "MIT"
@@ -70,31 +70,40 @@ def _fsa_example():
     return f
 
 
-def _mc_example(text):
+def _mc_example(text=None, memory=1):
     """Call this function with some text to get a Markov chain generated from the words in the
     text. `start()` the chain and then call `step()` on it to get a stream of words (based on the
     input text) printed to stdout.
     """
     import collections
+    import pathlib
     import string
+
+    if text is None:
+        sample_file = pathlib.Path(__file__).parents[3] / "sample_text.txt"
+        if sample_file.exists():
+            text = sample_file.read_text()
 
     trans_table = str.maketrans("", "", string.punctuation)
     words = text.translate(trans_table).lower().split()
     arcs = collections.defaultdict(collections.Counter)
-    for i in range(1, len(words)):
-        curr_word = words[i]
+    history = collections.deque(maxlen=memory)
+    for i in range(len(words)):
+        history.append(words[i])
         next_word = words[(i+1) % len(words)]
-        arcs[curr_word][next_word] += 1
+        arcs[tuple(history)][next_word] += 1
 
     chain = MarkovChain(
         initial_state=words[0],
         transition_graph=MarkovChain.TransitionGraph(
-            (source, count, target)
-            for source, source_arcs in arcs.items()
-            for target, count in source_arcs.items()
+            (hist, count, target)
+            for hist, hist_arcs in arcs.items()
+            for target, count in hist_arcs.items()
         ),
     )
-    chain.on_enter = print
     chain.text = text
     chain.words = words
+    chain.output = []
+    chain.on_enter = chain.output.append
+    chain.print = lambda: print(" ".join(chain.output))
     return chain

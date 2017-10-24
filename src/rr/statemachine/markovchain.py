@@ -1,3 +1,4 @@
+import bisect
 import collections
 import random
 
@@ -13,24 +14,32 @@ class MarkovChainTransitionGraph(TransitionGraph):
         self.update(transitions)
 
     def add(self, transition):
-        source, weight, target = transition
-        self.arcs[source].append((weight, target))
-        self.total_weight[source] += weight
+        history, weight, target = transition
+        if not isinstance(history, tuple):
+            raise TypeError("history must be a tuple of states")
+        if weight <= 0:
+            raise ValueError("transition weight must be positive")
+        total_weight = self.total_weight[history] + weight
+        self.arcs[history].append((total_weight, target))
+        self.total_weight[history] = total_weight
 
-    def target(self, source, rng):
-        x = rng.random() * self.total_weight[source]
-        y = 0
-        for weight, target in self.arcs[source]:
-            y += weight
-            if x <= y:
-                return target
-        raise RuntimeError("oh boy, how embarrassing...")
+    def target(self, history, rng):
+        if not isinstance(history, tuple):
+            raise TypeError("history must be a tuple of states")
+        arcs = self.arcs[history]
+        x = rng.random() * self.total_weight[history]
+        i = bisect.bisect_left(arcs, (x, None))
+        _, target = arcs[i]
+        return target
 
 
 class MarkovChain(TransitionGraphDrivenMixin, StateMachine):
     """In a Markov chain, the target state of a transition depends not on an input symbol,
     but on a weight assigned to each outgoing arc. The target state is randomly selected with
     each target state having a probability proportional to its weight.
+
+    This class supports Markov chains with arbitrary finite memory. Memory size is automatically
+    computed as the longest number of prior states in the transition graph.
     """
 
     # Provide access to the transition graph class that should be used when constructing the
@@ -44,18 +53,27 @@ class MarkovChain(TransitionGraphDrivenMixin, StateMachine):
     def __init__(self, initial_state=None, transition_graph=None, rng=None):
         TransitionGraphDrivenMixin.__init__(self, transition_graph)
         StateMachine.__init__(self, initial_state)
+        memory = max(len(h) for h in self.transition_graph.arcs.keys())
+        self._history = collections.deque(maxlen=memory)
         if rng is not None:
             self.rng = rng
 
     def step(self, n=1):
         """Advance the Markov chain `n` steps.
 
-        Call this method on Markov chains instead of using `input()`.
-
-        Implementation detail (should be irrelevant for users): the chain's RNG is used as input
-        symbol regardless of current state. This way it gets passed on to the transition graph's
-        `target()` method, allowing it to use the RNG's services (another possibility would be to
-        pass a uniform random number between 0 and 1 as input).
+        Call this method on Markov chains instead of using `input()`. Markov chains any ignore
+        input symbols, and instead base their transitions on recent state(s) and the RNG.
         """
         for _ in range(n):
-            self.input(self.rng)
+            self.input(None)
+
+    def _enter(self, state):
+        self._history.append(state)
+        return super()._enter(state)
+
+    def target(self, source, symbol):
+        """The transition target is obtained from the transition graph, and does not depend on
+        any input symbol. Instead, the transition graph uses the chain's recent history (which
+        includes the current state) and its RNG to obtain the next state.
+        """
+        return self.transition_graph.target(tuple(self._history), self.rng)

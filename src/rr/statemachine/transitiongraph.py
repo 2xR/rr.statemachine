@@ -14,8 +14,8 @@ class TransitionGraph:
 
 class TransitionGraphDrivenMixin:
     """A mixin for state machine classes that uses a `TransitionGraph` object to obtain the
-    target state in its `transition_target()` method. The transition graph can be defined at
-    class or instance level.
+    target state in its `target()` method. The transition graph can be defined at class or
+    instance level.
     """
 
     # Redefine this in subclasses to provide a class-level transition graph that is used as a

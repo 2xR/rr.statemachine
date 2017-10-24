@@ -4,7 +4,7 @@ class DynamicDispatchMixin:
     These methods are looked up and, if they're callable, are called without any arguments. Note
     that usage of this mixin makes sense only when states and symbols are representable as
     strings, as the name of the method to which an event is dispatched is built from a format
-    string that uses a representation of the state or transition.
+    string that, by default, uses the state or transition symbol.
 
     As an example, for a machine in state 'a' receiving symbol 's' as input and moving into state
     'b', the following handlers would be called (if they exist and are callable):

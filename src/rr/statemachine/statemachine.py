@@ -56,8 +56,7 @@ class StateMachine:
             initial_state = self.initial_state
         if initial_state is None:
             raise ValueError("undefined initial state")
-        self._state = initial_state
-        self.on_enter(initial_state)
+        self._enter(initial_state)
 
     def input(self, symbol):
         """Feed a `symbol` into the state machine to trigger a state transition."""
@@ -77,17 +76,28 @@ class StateMachine:
         while len(self._symbols) > 0:
             source = self._state
             symbol = self._symbols.popleft()
+            # Set the transition to indicate that we're transitioning. This way, if a crazy
+            # `.target()` method inputs any symbols into the state machine, `._resolve()` will
+            # return immediately. However, the actual transition target is still unknown at this
+            # point, so it is set to `None`.
+            self._transition = Transition(source, symbol, None)
             target = self.target(source, symbol)
             if target is None:
                 raise ValueError("undefined target state")
-            transition = Transition(source=source, symbol=symbol, target=target)
+            transition = Transition(source, symbol, target)
             self._transition = transition
-            self.on_exit(source)
-            self._state = None  # state becomes "undefined" in the middle of the transition
+            self._exit(source)
             self.on_transition(transition)
-            self._state = target
-            self.on_enter(target)
+            self._enter(target)
         self._transition = None
+
+    def _enter(self, state):
+        self._state = state
+        self.on_enter(state)
+
+    def _exit(self, state):
+        self.on_exit(state)
+        self._state = None
 
     def target(self, state, symbol):
         """Given a state and an input symbol, return the machine's next state."""
