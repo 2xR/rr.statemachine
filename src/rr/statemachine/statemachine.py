@@ -1,7 +1,8 @@
 import collections
 
 
-Transition = collections.namedtuple("Transition", ["source", "symbol", "target"])
+Input = collections.namedtuple("Input", ["symbol", "args", "kwargs"])
+Transition = collections.namedtuple("Transition", ["source", "input", "target"])
 
 
 class StateMachine:
@@ -13,7 +14,7 @@ class StateMachine:
             self.initial_state = initial_state  # override initial state directly on instance
         self._state = None  # current state (None means undefined/uninitialized)
         self._transition = None  # ongoing transition
-        self._symbols = collections.deque()  # unprocessed input symbols queue
+        self._input = collections.deque()  # unprocessed input queue
 
     def __str__(self):
         return "{}({!r})".format(type(self).__name__, self._state)
@@ -29,7 +30,7 @@ class StateMachine:
     @property
     def transition(self):
         """Retrieve the currently ongoing transition. Can be used to obtain source and target
-        states, and the symbol that triggered the transition.
+        states, and the input that triggered the transition.
         """
         return self._transition
 
@@ -43,57 +44,50 @@ class StateMachine:
         """True iff the machine has been `start()`ed."""
         return self._state is not None or self._transition is not None
 
-    def start(self, initial_state=None):
-        """Start the machine by entering the argument `initial_state`.
-
-        If an initial state argument is not given, it is obtained from the `StateMachine` object.
-        This allows us to define a default initial state at instance or class level, and override
-        it when calling `start()` if desired.
-        """
+    def start(self, *args, **kwargs):
+        """Start the machine by entering its initial state."""
         if self.started:
             raise RuntimeError("state machine has already been started")
-        if initial_state is None:
-            initial_state = self.initial_state
-        if initial_state is None:
+        if self.initial_state is None:
             raise ValueError("undefined initial state")
-        self._enter(initial_state)
+        self._enter(self.initial_state, args, kwargs)
 
-    def input(self, symbol):
+    def input(self, symbol, *args, **kwargs):
         """Feed a `symbol` into the state machine to trigger a state transition."""
         if not self.started:
             raise RuntimeError("state machine must be started")
-        self._symbols.append(symbol)
+        self._input.append(Input(symbol, args, kwargs))
         self._resolve()
 
     def _resolve(self):
-        """Resolve pending transitions, *i.e.* process queued input symbols.
+        """Resolve pending transitions, *i.e.* process queued inputs.
 
-        Pending symbols are kept in a FIFO queue to ensure that enter/exit/transition handlers
+        Pending inputs are kept in a FIFO queue to ensure that enter/exit/transition handlers
         are executed in the correct order.
         """
         if self.transitioning:
             return  # we're already in the midst of resolving transitions
-        while len(self._symbols) > 0:
+        while len(self._input) > 0:
             source = self._state
-            symbol = self._symbols.popleft()
-            # Set the transition to indicate that we're transitioning. This way, if a crazy
+            input = self._input.popleft()
+            # Set the transition to indicate that we're transitioning. This way, if a weird
             # `.target()` method inputs any symbols into the state machine, `._resolve()` will
             # return immediately. However, the actual transition target is still unknown at this
             # point, so it is set to `None`.
-            self._transition = Transition(source, symbol, None)
-            target = self.target(source, symbol)
+            self._transition = Transition(source, input, None)
+            target = self.target(source, input.symbol)
             if target is None:
                 raise ValueError("undefined target state")
-            transition = Transition(source, symbol, target)
+            transition = Transition(source, input, target)
             self._transition = transition
             self._exit(source)
             self.on_transition(transition)
-            self._enter(target)
+            self._enter(target, input.args, input.kwargs)
         self._transition = None
 
-    def _enter(self, state):
+    def _enter(self, state, args, kwargs):
         self._state = state
-        self.on_enter(state)
+        self.on_enter(state, *args, **kwargs)
 
     def _exit(self, state):
         self.on_exit(state)
@@ -103,7 +97,7 @@ class StateMachine:
         """Given a state and an input symbol, return the machine's next state."""
         raise NotImplementedError()
 
-    def on_enter(self, state):
+    def on_enter(self, state, *args, **kwargs):
         """Perform actions associated with the event of entering the argument `state`."""
         pass
 

@@ -67,9 +67,9 @@ class MarkovChain(TransitionGraphDrivenMixin, StateMachine):
         for _ in range(n):
             self.input(None)
 
-    def _enter(self, state):
+    def _enter(self, state, args, kwargs):
         self._history.append(state)
-        return super()._enter(state)
+        return super()._enter(state, args, kwargs)
 
     def target(self, source, symbol):
         """The transition target is obtained from the transition graph, and does not depend on

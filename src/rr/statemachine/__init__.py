@@ -21,8 +21,8 @@ def _dd_example():
         ])
         transition_handler_name = "on_transition_{0.source}_{0.target}"
 
-        def on_enter(self, state):
-            print(">>> {}".format(state))
+        def on_enter(self, state, *args, **kwargs):
+            print(">>> {} {} {}".format(state, args, kwargs))
 
         def on_transition_b_b(self):
             print("loop b")
