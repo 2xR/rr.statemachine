@@ -57,13 +57,22 @@ class MarkovChain(TransitionGraphDrivenMixin, StateMachine):
         self._history = collections.deque(maxlen=memory)
         if rng is not None:
             self.rng = rng
+        if self.initial_state is None:
+            self.initial_state = self.transition_graph.target(history=(), rng=self.rng)
 
     def step(self, n=1):
         """Advance the Markov chain `n` steps.
 
         Call this method on Markov chains instead of using `input()`. Markov chains any ignore
         input symbols, and instead base their transitions on recent state(s) and the RNG.
+
+        Note:
+            This method automatically calls the `.start()` method on the Markov chain object if
+            necessary. In such cases, the number of steps `n` is reduced by 1.
         """
+        if not self.started:
+            self.start()
+            n -= 1
         for _ in range(n):
             self.input(None)
 
@@ -76,4 +85,4 @@ class MarkovChain(TransitionGraphDrivenMixin, StateMachine):
         any input symbol. Instead, the transition graph uses the chain's recent history (which
         includes the current state) and its RNG to obtain the next state.
         """
-        return self.transition_graph.target(tuple(self._history), self.rng)
+        return self.transition_graph.target(history=tuple(self._history), rng=self.rng)
